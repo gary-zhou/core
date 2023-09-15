@@ -5,6 +5,21 @@
 #include "SpellEntry.h"
 #include "Player.h"
 
+enum CantCastSpellReasons
+{
+    SPELL_NOT_READY = 0x1,
+    HAS_GCD = 0x2,
+    INVALID_TARGET_AURA_STATE = 0x4,
+    INVALID_CASTER_AURA_STATE = 0x8,
+    LOW_HEALTH = 0x10,
+    INSUFFICIENT_POWER = 0x20,
+    TARGET_IMMUNE = 0x40,
+    INVALID_SHAPESHIFT_FORM = 0x80,
+    AURA_ALREADY_APPLIED = 0x100,
+    TARGET_TOO_CLOSE = 0x200,
+    TARGET_TOO_FAR = 0x400,
+};
+
 struct HealSpellCompare
 {
     bool operator() (SpellEntry const* const lhs, SpellEntry const* const rhs) const
@@ -122,6 +137,7 @@ public:
 
     SpellCastResult DoCastSpell(Unit* pTarget, SpellEntry const* pSpellEntry);
     virtual bool CanTryToCastSpell(Unit const* pTarget, SpellEntry const* pSpellEntry) const;
+    virtual unsigned long CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const;
     bool IsWearingShield(Player* pPlayer) const;
 
     void EquipOrUseNewItem();

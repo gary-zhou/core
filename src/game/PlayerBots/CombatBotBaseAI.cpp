@@ -2878,19 +2878,25 @@ void CombatBotBaseAI::AutoEquipGear(uint32 option)
 
 bool CombatBotBaseAI::CanTryToCastSpell(Unit const* pTarget, SpellEntry const* pSpellEntry) const
 {
+    return CanTryToCastSpellResult(pTarget, pSpellEntry) == 0;
+}
+
+unsigned long CombatBotBaseAI::CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const
+{
+    unsigned long result = 0;
     if (!me->IsSpellReady(pSpellEntry->Id))
-        return false;
+        result = result | SPELL_NOT_READY;
 
     if (me->HasGCD(pSpellEntry))
-        return false;
+        result = result | HAS_GCD;
 
     if (pSpellEntry->TargetAuraState &&
-       !pTarget->HasAuraState(AuraState(pSpellEntry->TargetAuraState)))
-        return false;
+        !pTarget->HasAuraState(AuraState(pSpellEntry->TargetAuraState)))
+        result = result | INVALID_TARGET_AURA_STATE;
 
     if (pSpellEntry->CasterAuraState &&
         !me->HasAuraState(AuraState(pSpellEntry->CasterAuraState)))
-        return false;
+        result = result | INVALID_CASTER_AURA_STATE;
 
     uint32 const powerCost = Spell::CalculatePowerCost(pSpellEntry, me);
     Powers const powerType = Powers(pSpellEntry->powerType);
@@ -2898,21 +2904,20 @@ bool CombatBotBaseAI::CanTryToCastSpell(Unit const* pTarget, SpellEntry const* p
     if (powerType == POWER_HEALTH)
     {
         if (me->GetHealth() <= powerCost)
-            return false;
-        return true;
+            result = result | LOW_HEALTH;
     }
 
     if (me->GetPower(powerType) < powerCost)
-        return false;
+        result = result | INSUFFICIENT_POWER;
 
     if (pTarget->IsImmuneToSpell(pSpellEntry, false))
-        return false;
+        result = result | TARGET_IMMUNE;
 
     if (pSpellEntry->GetErrorAtShapeshiftedCast(me->GetShapeshiftForm()) != SPELL_CAST_OK)
-        return false;
+        result = result | INVALID_SHAPESHIFT_FORM;
 
     if (pSpellEntry->IsSpellAppliesAura() && pTarget->HasAura(pSpellEntry->Id))
-        return false;
+        result = result | AURA_ALREADY_APPLIED;
 
     SpellRangeEntry const* srange = sSpellRangeStore.LookupEntry(pSpellEntry->rangeIndex);
     if (me != pTarget && pSpellEntry->EffectImplicitTargetA[0] != TARGET_UNIT_CASTER)
@@ -2920,12 +2925,12 @@ bool CombatBotBaseAI::CanTryToCastSpell(Unit const* pTarget, SpellEntry const* p
         float const dist = me->GetCombatDistance(pTarget);
 
         if (dist > srange->maxRange)
-            return false;
+            result = result | TARGET_TOO_FAR;
         if (srange->minRange && dist < srange->minRange)
-            return false;
+            result = result | TARGET_TOO_CLOSE;
     }
 
-    return true;
+    return result;
 }
 
 SpellCastResult CombatBotBaseAI::DoCastSpell(Unit* pTarget, SpellEntry const* pSpellEntry)
