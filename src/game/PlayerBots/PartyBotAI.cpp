@@ -2422,7 +2422,7 @@ void PartyBotAI::UpdateInCombatAI_Warrior()
             auto sunderSpellAuraHolder = pVictim->GetSpellAuraHolder(m_spells.warrior.pSunderArmor->Id);
             bool shouldSunder = canSunderResult == 0 || 
                 sunderSpellAuraHolder == nullptr || 
-                (canSunderResult == AURA_ALREADY_APPLIED && sunderSpellAuraHolder->GetStackAmount() < 5);
+                sunderSpellAuraHolder->GetStackAmount() < 5;
             if (DoCastSpell(pVictim, m_spells.warrior.pSunderArmor) == SPELL_CAST_OK)
                 return;
         }
