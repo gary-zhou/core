@@ -2418,13 +2418,13 @@ void PartyBotAI::UpdateInCombatAI_Warrior()
 
         if (m_spells.warrior.pSunderArmor && m_role == ROLE_TANK)
         {
-            unsigned long canSunderResult = CanTryToCastSpellResult(pVictim, m_spells.warrior.pSunderArmor);
+            uint64 canSunderResult = CanTryToCastSpellResult(pVictim, m_spells.warrior.pSunderArmor);
             auto sunderSpellAuraHolder = pVictim->GetSpellAuraHolder(m_spells.warrior.pSunderArmor->Id);
-            bool shouldSunder = canSunderResult == 0 || 
-                sunderSpellAuraHolder == nullptr || 
-                sunderSpellAuraHolder->GetStackAmount() < 5;
-            if (DoCastSpell(pVictim, m_spells.warrior.pSunderArmor) == SPELL_CAST_OK)
-                return;
+            bool shouldSunder = canSunderResult == 0 || sunderSpellAuraHolder == nullptr || sunderSpellAuraHolder->GetStackAmount() < 5;
+            if (shouldSunder) {
+                if (DoCastSpell(pVictim, m_spells.warrior.pSunderArmor) == SPELL_CAST_OK)
+                    return;
+            }
         }
 
         if (m_spells.warrior.pHamstring &&
