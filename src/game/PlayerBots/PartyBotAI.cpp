@@ -265,13 +265,20 @@ bool PartyBotAI::ShouldAutoRevive() const
 
 bool PartyBotAI::CanTryToCastSpell(Unit const* pTarget, SpellEntry const* pSpellEntry) const
 {
-    if (!CombatBotBaseAI::CanTryToCastSpell(pTarget, pSpellEntry))
-        return false;
+    unsigned long result = CanTryToCastSpellResult(pTarget, pSpellEntry);
+    return result == 0;
+}
+
+unsigned long PartyBotAI::CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const
+{
+    unsigned long result = 0;
+    unsigned long combatAiCanTryResult = CombatBotBaseAI::CanTryToCastSpellResult(pTarget, pSpellEntry);
+    result = result | combatAiCanTryResult;
 
     if (pSpellEntry->IsAreaOfEffectSpell() && !pSpellEntry->IsPositiveSpell())
     {
         if (!m_marksToCC.empty())
-            return false;
+            result = result | CantCastSpellReasons::CROWD_CONTROL;
 
         // do not cast aoe if it will pull aggro
         if (m_role != ROLE_TANK)
@@ -299,15 +306,15 @@ bool PartyBotAI::CanTryToCastSpell(Unit const* pTarget, SpellEntry const* pSpell
                 {
                     float const myThreat = pEnemy->GetThreatManager().getThreat(me);
                     float const victimThreat = pEnemy->GetThreatManager().getThreat(pEnemy->GetVictim());
-                    
+
                     if (victimThreat < (myThreat + me->GetMaxHealth()))
-                        return false;
+                        result = result | CantCastSpellReasons::AOE_AGGRO;
                 }
             }
         }
     }
 
-    return true;
+    return result;
 }
 
 bool PartyBotAI::CanUseCrowdControl(SpellEntry const* pSpellEntry, Unit* pTarget) const
