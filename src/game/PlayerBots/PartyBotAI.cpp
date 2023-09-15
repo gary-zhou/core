@@ -2362,7 +2362,7 @@ void PartyBotAI::UpdateInCombatAI_Warrior()
             if (DoCastSpell(pVictim, m_spells.warrior.pOverpower) == SPELL_CAST_OK)
                 return;
         }
-
+       
         if (m_spells.warrior.pLastStand &&
             me->GetHealthPercent() < 20.0f &&
             CanTryToCastSpell(me, m_spells.warrior.pLastStand))
@@ -2419,7 +2419,10 @@ void PartyBotAI::UpdateInCombatAI_Warrior()
         if (m_spells.warrior.pSunderArmor && m_role == ROLE_TANK)
         {
             unsigned long canSunderResult = CanTryToCastSpellResult(pVictim, m_spells.warrior.pSunderArmor);
-            bool shouldSunder = canSunderResult == 0 || canSunderResult == AURA_ALREADY_APPLIED;
+            auto sunderSpellAuraHolder = pVictim->GetSpellAuraHolder(m_spells.warrior.pSunderArmor->Id);
+            bool shouldSunder = canSunderResult == 0 || 
+                sunderSpellAuraHolder == nullptr || 
+                (canSunderResult == AURA_ALREADY_APPLIED && sunderSpellAuraHolder->GetStackAmount() < 5);
             if (DoCastSpell(pVictim, m_spells.warrior.pSunderArmor) == SPELL_CAST_OK)
                 return;
         }
