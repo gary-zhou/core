@@ -2416,10 +2416,10 @@ void PartyBotAI::UpdateInCombatAI_Warrior()
                 return;
         }
 
-        if (m_spells.warrior.pSunderArmor &&
-            m_role == ROLE_TANK &&
-            CanTryToCastSpell(pVictim, m_spells.warrior.pSunderArmor))
+        if (m_spells.warrior.pSunderArmor && m_role == ROLE_TANK)
         {
+            unsigned long canSunderResult = CanTryToCastSpellResult(pVictim, m_spells.warrior.pSunderArmor);
+            bool shouldSunder = canSunderResult == 0 || canSunderResult == AURA_ALREADY_APPLIED;
             if (DoCastSpell(pVictim, m_spells.warrior.pSunderArmor) == SPELL_CAST_OK)
                 return;
         }
