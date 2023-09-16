@@ -18,6 +18,8 @@ enum CantCastSpellReasons
     AURA_ALREADY_APPLIED = 0x100,
     TARGET_TOO_CLOSE = 0x200,
     TARGET_TOO_FAR = 0x400,
+    AOE_AGGRO = 0x800,
+    CROWD_CONTROL = 0x1000
 };
 
 struct HealSpellCompare
