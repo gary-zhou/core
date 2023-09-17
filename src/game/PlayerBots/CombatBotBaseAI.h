@@ -139,7 +139,7 @@ public:
 
     SpellCastResult DoCastSpell(Unit* pTarget, SpellEntry const* pSpellEntry);
     virtual bool CanTryToCastSpell(Unit const* pTarget, SpellEntry const* pSpellEntry) const;
-    virtual unsigned long CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const;
+    virtual uint64 CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const;
     bool IsWearingShield(Player* pPlayer) const;
 
     void EquipOrUseNewItem();

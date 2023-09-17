@@ -2881,9 +2881,9 @@ bool CombatBotBaseAI::CanTryToCastSpell(Unit const* pTarget, SpellEntry const* p
     return CanTryToCastSpellResult(pTarget, pSpellEntry) == 0;
 }
 
-unsigned long CombatBotBaseAI::CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const
+uint64 CombatBotBaseAI::CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const
 {
-    unsigned long result = 0;
+    uint64 result = 0;
     if (!me->IsSpellReady(pSpellEntry->Id))
         result = result | SPELL_NOT_READY;
 

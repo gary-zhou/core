@@ -265,14 +265,14 @@ bool PartyBotAI::ShouldAutoRevive() const
 
 bool PartyBotAI::CanTryToCastSpell(Unit const* pTarget, SpellEntry const* pSpellEntry) const
 {
-    unsigned long result = CanTryToCastSpellResult(pTarget, pSpellEntry);
+    uint64 result = CanTryToCastSpellResult(pTarget, pSpellEntry);
     return result == 0;
 }
 
-unsigned long PartyBotAI::CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const
+uint64 PartyBotAI::CanTryToCastSpellResult(Unit const* pTarget, SpellEntry const* pSpellEntry) const
 {
-    unsigned long result = 0;
-    unsigned long combatAiCanTryResult = CombatBotBaseAI::CanTryToCastSpellResult(pTarget, pSpellEntry);
+    uint64 result = 0;
+    uint64 combatAiCanTryResult = CombatBotBaseAI::CanTryToCastSpellResult(pTarget, pSpellEntry);
     result = result | combatAiCanTryResult;
 
     if (pSpellEntry->IsAreaOfEffectSpell() && !pSpellEntry->IsPositiveSpell())
