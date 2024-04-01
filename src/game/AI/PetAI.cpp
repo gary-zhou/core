@@ -30,6 +30,7 @@
 #include "Util.h"
 #include "Group.h"
 #include "SpellAuraDefines.h"
+#include "Map.h"
 
 int PetAI::Permissible(Creature const* creature)
 {
@@ -116,6 +117,10 @@ void PetAI::MoveInLineOfSight(Unit* pWho)
     if (pWho->IsCreature() && static_cast<Creature*>(pWho)->IsCivilian())
         return;
 #endif
+
+    if (m_creature->HasStaticFlag(CREATURE_STATIC_FLAG_ONLY_ATTACK_PVP_ENABLING) &&
+        !pWho->IsPvP() && pWho->IsCharmerOrOwnerPlayerOrPlayerItself())
+        return;
 
     if (m_creature->CanInitiateAttack() && pWho->IsTargetableBy(m_creature))
     {

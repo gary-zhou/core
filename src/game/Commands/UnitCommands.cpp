@@ -446,6 +446,9 @@ bool ChatHandler::HandleUnitStatInfoCommand(char* args)
     PSendSysMessage("Frost spell crit chance: %g", pPlayer->GetSpellCritPercent(SPELL_SCHOOL_FROST));
     PSendSysMessage("Shadow spell crit chance: %g", pPlayer->GetSpellCritPercent(SPELL_SCHOOL_SHADOW));
     PSendSysMessage("Arcane spell crit chance: %g", pPlayer->GetSpellCritPercent(SPELL_SCHOOL_ARCANE));
+    PSendSysMessage("Melee hit chance: %g", pPlayer->GetWeaponBasedAuraModifier(BASE_ATTACK, SPELL_AURA_MOD_HIT_CHANCE));
+    PSendSysMessage("Ranged hit chance: %g", pPlayer->GetWeaponBasedAuraModifier(RANGED_ATTACK, SPELL_AURA_MOD_HIT_CHANCE));
+    PSendSysMessage("Spell hit chance: %g", pPlayer->m_modSpellHitChance);
     PSendSysMessage("Positive strength: %g", pPlayer->GetPosStat(STAT_STRENGTH));
     PSendSysMessage("Positive agility: %g", pPlayer->GetPosStat(STAT_AGILITY));
     PSendSysMessage("Positive stamina: %g", pPlayer->GetPosStat(STAT_STAMINA));
@@ -856,6 +859,28 @@ bool ChatHandler::HandleUnitShowCreateSpellCommand(char* args)
     return true;
 }
 
+bool ChatHandler::HandlePvPCommand(char* args)
+{
+    Unit* pTarget = GetSelectedUnit();
+    if (!pTarget)
+        return false;
+    
+    bool value;
+    if (!ExtractOnOff(&args, value))
+    {
+        SendSysMessage(LANG_USE_BOL);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    if (Player* pPlayer = pTarget->ToPlayer())
+        pPlayer->UpdatePvP(value, true);
+    else
+        pTarget->SetPvP(value);
+
+    return true;
+}
+
 bool ChatHandler::HandleFreezeCommand(char* args)
 {
     Unit* pTarget = GetSelectedUnit();
@@ -876,13 +901,13 @@ bool ChatHandler::HandleUnfreezeCommand(char* args)
 
 bool ChatHandler::HandlePossessCommand(char *args)
 {
-    Unit* tar = GetSelectedUnit();
-    if (!tar)
+    Unit* target = GetSelectedUnit();
+    if (!target)
     {
         SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
         return false;
     }
-    m_session->GetPlayer()->CastSpell(tar, 530, true);
+    m_session->GetPlayer()->CastCustomSpell(target, 530, 255, {}, {}, true);
     return true;
 }
 
@@ -2258,6 +2283,22 @@ bool ChatHandler::HandleModifyManaCommand(char* args)
     return true;
 }
 
+bool ChatHandler::HandleDeplenishCommand(char* args)
+{
+    Unit* pUnit = GetSelectedUnit();
+    if (!pUnit || !pUnit->IsAlive())
+    {
+        SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    pUnit->SetHealth(1);
+    pUnit->SetPower(pUnit->GetPowerType(), 0);
+
+    return true;
+}
+
 bool ChatHandler::HandleReplenishCommand(char* args)
 {
     Unit* pUnit = GetSelectedUnit();
@@ -2575,7 +2616,7 @@ bool ChatHandler::HandleDieHelper(Unit* target)
         if (HasLowerSecurity((Player*)target, ObjectGuid(), false))
             return false;
 
-        if (player->IsGod())
+        if (player->GetInvincibilityHpThreshold())
             player->SetCheatGod(false);
     }
 

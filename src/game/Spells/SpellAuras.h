@@ -128,12 +128,14 @@ class SpellAuraHolder
         HeartBeatData* _pveHeartBeatData;
 
         // Debuff limit
+        void CalculateForBuffLimit();
         void CalculateForDebuffLimit();
-        bool IsAffectedByDebuffLimit() const { return m_debuffLimitAffected; }
-        void SetAffectedByDebuffLimit(bool isAffectedByDebuffLimit);
-        bool IsMoreImportantDebuffThan(SpellAuraHolder* other) const;
-        bool m_debuffLimitAffected;
-        uint32 m_debuffLimitScore; // + haut => + important
+        bool IsAffectedByVisibleSlotLimit() const { return m_visibleSlotLimitAffected; }
+        void SetAffectedByVisibleSlotLimit(bool isAffectedByDebuffLimit);
+        bool IsMoreImportantVisualAuraThan(SpellAuraHolder* other) const;
+        bool m_visibleSlotLimitAffected;
+        uint32 m_visibleSlotLimitScore; // higher means more important
+
         // Refresh de buff
         void Refresh(Unit* caster, Unit* target, SpellAuraHolder* pRefreshWithAura);
         bool CanBeRefreshedBy(SpellAuraHolder* other) const;
@@ -374,7 +376,6 @@ class Aura
         void HandleAuraModBlockPercent(bool Apply, bool Real);
         void HandleAuraModCritPercent(bool Apply, bool Real);
         void HandlePeriodicLeech(bool Apply, bool Real);
-        void HandleModHitChance(bool Apply, bool Real);
         void HandleModSpellHitChance(bool Apply, bool Real);
         void HandleAuraModScale(bool Apply, bool Real);
         void HandlePeriodicManaLeech(bool Apply, bool Real);

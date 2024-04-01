@@ -153,12 +153,15 @@ enum PacketProcessing
      */
     PACKET_PROCESS_MOVEMENT,
     /*
-     * PACKET_PROCESS_DB_QUERY
-     * Does not write anything. Can be processed in any environment.
-     * Reads static data (usually data from World DB)
-     * Currently executed directly in the network thread.
+     * PACKET_PROCESS_ASYNC
+     * Handled whenever session update is not running.
+     * Never at the same time as PACKET_PROCESS_WORLD.
+     * Never while cli and gm commands are being executed.
+     * Can be at the same time as maps are being updated.
+     * Be careful touching the player.
+     * Never touch the map.
      */
-    PACKET_PROCESS_DB_QUERY,
+    PACKET_PROCESS_ASYNC,
     PACKET_PROCESS_MAX_TYPE,                                // no handler for this packet (server side, or not implemented)
     /*
      * PACKET_PROCESS_SELF_ITEMS
@@ -173,6 +176,12 @@ enum PacketProcessing
      * - No other modification / no read allowed
      */
     PACKET_PROCESS_SELF_ITEMS = PACKET_PROCESS_MAP,
+    /*
+    * PACKET_PROCESS_DB_QUERY
+    * Does not write anything. Can be processed as long as containers are not being reloaded.
+    * Reads static data (usually data from World DB)
+    */
+    PACKET_PROCESS_DB_QUERY = PACKET_PROCESS_ASYNC,
     /*
      * PACKET_PROCESS_CHANNEL
      * Allowed:
@@ -357,7 +366,7 @@ class WorldSession
         Warden* GetWarden() const { return m_warden; }
         void InitCheatData(Player* pPlayer);
         MovementAnticheat* GetCheatData();
-        void ProcessAnticheatAction(char const* detector, char const* reason, uint32 action, uint32 banTime = 0 /* Perm ban */);
+        void ProcessAnticheatAction(char const* detector, char const* reason, uint32 cheatAction, uint32 banSeconds = 0 /* Perm ban */);
         uint32 GetFingerprint() const { return 0; } // TODO
         void CleanupFingerprintHistory() {} // TODO
         bool HasUsedClickToMove() const;
@@ -436,7 +445,7 @@ class WorldSession
         // Trade
         void SendTradeStatus(TradeStatus status);
         void SendUpdateTrade(bool trader_state = true);
-        void SendCancelTrade();
+        void SendCancelTrade(TradeStatus status);
 
         // Pet
         void SendPetNameQuery(ObjectGuid guid, uint32 petNumber);

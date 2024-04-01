@@ -253,6 +253,7 @@ class Spell
         void EffectSummon(SpellEffectIndex effIdx);
         void EffectLearnSpell(SpellEffectIndex effIdx);
         void EffectDispel(SpellEffectIndex effIdx);
+        void EffectLanguage(SpellEffectIndex effIdx);
         void EffectDualWield(SpellEffectIndex effIdx);
         void EffectPickPocket(SpellEffectIndex effIdx);
         void EffectAddFarsight(SpellEffectIndex effIdx);
@@ -392,6 +393,7 @@ class Spell
         void SendSpellCooldown();
         void SendLogExecute();
         void SendInterrupted(uint8 result);
+        void SendAllTargetsMiss();
         void SendChannelUpdate(uint32 time, bool interrupted = false);
         void SendChannelStart(uint32 duration);
         void SendResurrectRequest(Player* target, bool sickness);
@@ -439,6 +441,7 @@ class Spell
         Unit* GetAffectiveCaster() const { return m_originalCasterGUID ? m_originalCaster : m_casterUnit; }
         // m_originalCasterGUID can store GO guid, and in this case this is visual caster
         SpellCaster* GetCastingObject() const;
+        ObjectGuid GetOriginalCasterGuid() const { return m_originalCasterGUID; }
 
         uint32 GetPowerCost() const { return m_powerCost; }
 
@@ -607,6 +610,8 @@ class Spell
             bool   deleted:1;
         };
         bool m_destroyed = false;
+
+        SpellCastResult CheckScriptTargeting(SpellEffectIndex effIndex, uint32 chainTargets, float radius, uint32 targetMode, UnitList& tempUnitList);
 
 #ifndef USE_STANDARD_MALLOC
         typedef tbb::concurrent_vector<TargetInfo>     TargetList;
@@ -785,12 +790,15 @@ class SpellEvent : public BasicEvent
 class ChannelResetEvent : public BasicEvent
 {
     public:
-        ChannelResetEvent(Unit* _caster) : caster(_caster) {}
+        ChannelResetEvent(Unit* caster) : m_caster(caster)
+        {
+            caster->AddUnitState(UNIT_STAT_PENDING_CHANNEL_RESET);
+        }
         ~ChannelResetEvent() override {}
 
         bool Execute(uint64 e_time, uint32 p_time) override;
         void Abort(uint64 e_time) override;
     protected:
-        Unit* caster;
+        Unit* m_caster;
 };
 #endif

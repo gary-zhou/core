@@ -215,6 +215,37 @@ void WorldSession::SendPacket(WorldPacket const* packet)
         m_socket->CloseSocket();
 }
 
+uint32 GetChatPacketProcessingType(uint32 chatType)
+{
+    switch (chatType)
+    {
+        // These can be handled at any time session update in world thread is not running.
+        case CHAT_MSG_CHANNEL:
+        case CHAT_MSG_WHISPER:
+        case CHAT_MSG_PARTY:
+        case CHAT_MSG_GUILD:
+        case CHAT_MSG_OFFICER:
+        case CHAT_MSG_RAID:
+#if SUPPORTED_CLIENT_BUILD > CLIENT_BUILD_1_10_2
+        case CHAT_MSG_RAID_LEADER:
+        case CHAT_MSG_RAID_WARNING:
+#endif
+#if SUPPORTED_CLIENT_BUILD > CLIENT_BUILD_1_11_2
+        case CHAT_MSG_BATTLEGROUND:
+        case CHAT_MSG_BATTLEGROUND_LEADER:
+#endif
+        case CHAT_MSG_DND:
+            return PACKET_PROCESS_ASYNC;
+        // These can be handled on the map thread.
+        case CHAT_MSG_SAY:
+        case CHAT_MSG_EMOTE:
+        case CHAT_MSG_YELL:
+            return PACKET_PROCESS_MAP;
+    }
+
+    return PACKET_PROCESS_WORLD;
+}
+
 // Add an incoming packet to the queue
 void WorldSession::QueuePacket(std::unique_ptr<WorldPacket> newPacket)
 {
@@ -224,27 +255,27 @@ void WorldSession::QueuePacket(std::unique_ptr<WorldPacket> newPacket)
     if (_player && MovementAnticheat::IsLoggedOpcode(newPacket->GetOpcode()))
         GetCheatData()->LogMovementPacket(true, *newPacket);
 
-    OpcodeHandler const& opHandle = opcodeTable[newPacket->GetOpcode()];
-    uint32 const processing = opHandle.packetProcessing;
+    uint32 processing;
 
-    if (processing >= PACKET_PROCESS_MAX_TYPE)
-    {
-        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "SESSION: opcode %s (0x%.4X) will be skipped",
-                      LookupOpcodeName(newPacket->GetOpcode()),
-                      newPacket->GetOpcode());
-        return;
-    }
-
-    // handle query packets in place to reduce load on world
-    // they dont access player or write anything so its safe
-    if (processing == PACKET_PROCESS_DB_QUERY)
-    {
-        // all these packets require STATUS_LOGGEDIN 
-        if (_player)
-            (this->*opHandle.handler)(*newPacket);
-    }
+    // Handle chat packets on async thread when possible
+    if (newPacket->GetOpcode() == CMSG_MESSAGECHAT &&
+        newPacket->size() >= sizeof(uint32))
+        processing = GetChatPacketProcessingType(*((uint32*)newPacket->contents()));
     else
-        m_recvQueue[processing].add(std::move(newPacket));
+    {
+        OpcodeHandler const& opHandle = opcodeTable[newPacket->GetOpcode()];
+        processing = opHandle.packetProcessing;
+
+        if (processing >= PACKET_PROCESS_MAX_TYPE)
+        {
+            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "SESSION: opcode %s (0x%.4X) will be skipped",
+                LookupOpcodeName(newPacket->GetOpcode()),
+                newPacket->GetOpcode());
+            return;
+        }
+    }
+
+    m_recvQueue[processing].add(std::move(newPacket));
 }
 
 // Logging helper for unexpected opcodes
@@ -678,7 +709,7 @@ void WorldSession::LogoutPlayer(bool Save)
         bool removedFromMap = false;
         if (Map* map = _player->FindMap())
         {
-            if (map->IsNonRaidDungeon() && _player->GetGroup())
+            if (map->IsNonRaidDungeon() && !_player->GetBoundInstanceSaveForSelfOrGroup(map->GetId()))
             {
                 AreaTriggerTeleport const* at = sObjectMgr.GetGoBackTrigger(map->GetId());
                 if (at)
@@ -700,11 +731,6 @@ void WorldSession::LogoutPlayer(bool Save)
 
         // If the player is in a group (or invited), remove him. If the group if then only 1 person, disband the group.
         _player->UninviteFromGroup();
-
-        // remove player from the group if he is:
-        // a) in group; b) not in raid group; c) logging out normally (not being kicked or disconnected)
-        if (_player->GetGroup() && !_player->GetGroup()->isRaidGroup() && m_socket)
-            _player->RemoveFromGroup();
 
         // Send update to group
         if (Group* group = _player->GetGroup())
@@ -925,23 +951,16 @@ void WorldSession::SetAccountData(NewAccountData::AccountDataType type, const st
     time_t const currentTime = time(nullptr);
     if ((1 << type) & NewAccountData::GLOBAL_CACHE_MASK)
     {
-        uint32 acc = GetAccountId();
-
-        static SqlStatementID delId;
-        static SqlStatementID insId;
-
-        CharacterDatabase.BeginTransaction();
-
-        SqlStatement stmt = CharacterDatabase.CreateStatement(delId, "DELETE FROM `account_data` WHERE `account`=? AND `type`=?");
-        stmt.PExecute(acc, uint32(type));
-
-        if (!data.empty())
+        if (data.empty())
         {
-            stmt = CharacterDatabase.CreateStatement(insId, "INSERT INTO `account_data` VALUES (?,?,?,?)");
-            stmt.PExecute(acc, uint32(type), uint64(currentTime), data.c_str());
+            CharacterDatabase.PExecute("DELETE FROM `account_data` WHERE `account`=%u AND `type`=%u", GetAccountId(), uint32(type));
         }
-
-        CharacterDatabase.CommitTransaction();
+        else
+        {
+            std::string escapedData = data;
+            CharacterDatabase.escape_string(escapedData);
+            CharacterDatabase.PExecute("REPLACE INTO `account_data` VALUES (%u, %u, %u, '%s')", GetAccountId(), uint32(type), uint64(currentTime), escapedData.c_str());
+        }
     }
     else
     {
@@ -949,21 +968,16 @@ void WorldSession::SetAccountData(NewAccountData::AccountDataType type, const st
         if (!m_currentPlayerGuid)
             return;
 
-        static SqlStatementID delId;
-        static SqlStatementID insId;
-
-        CharacterDatabase.BeginTransaction();
-
-        SqlStatement stmt = CharacterDatabase.CreateStatement(delId, "DELETE FROM `character_account_data` WHERE `guid`=? AND `type`=?");
-        stmt.PExecute(m_currentPlayerGuid.GetCounter(), uint32(type));
-
-        if (!data.empty())
+        if (data.empty())
         {
-            stmt = CharacterDatabase.CreateStatement(insId, "INSERT INTO `character_account_data` VALUES (?,?,?,?)");
-            stmt.PExecute(m_currentPlayerGuid.GetCounter(), uint32(type), uint64(currentTime), data.c_str());
+            CharacterDatabase.PExecute("DELETE FROM `character_account_data` WHERE `guid`=%u AND `type`=%u", m_currentPlayerGuid.GetCounter(), uint32(type));
         }
-
-        CharacterDatabase.CommitTransaction();
+        else
+        {
+            std::string escapedData = data;
+            CharacterDatabase.escape_string(escapedData);
+            CharacterDatabase.PExecute("REPLACE INTO `character_account_data` VALUES (%u, %u, %u, '%s')", m_currentPlayerGuid.GetCounter(), uint32(type), uint64(currentTime), escapedData.c_str());
+        }
     }
 
     m_accountData[type].timestamp = currentTime;
@@ -1175,7 +1189,7 @@ void WorldSession::ProcessAnticheatAction(char const* detector, char const* reas
         (cheatAction >= CHEAT_ACTION_KICK))
     {
         std::stringstream oss;
-        oss << "|r[|c1f40af20Announce by |cffff0000" << detector << "|r]: Player " << _player->GetName() << ", Cheat: " << reason << ", Penalty: " << action;
+        oss << "|r[|c1f40af20Announce by |cffff0000" << detector << "|r]: Player " << playerDesc << ", Cheat: " << reason << ", Penalty: " << action;
         sWorld.SendGlobalText(oss.str().c_str(), this);
     }
 

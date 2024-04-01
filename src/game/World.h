@@ -196,6 +196,7 @@ enum eConfigUInt32Values
     CONFIG_UINT32_MIN_HONOR_KILLS,
     CONFIG_UINT32_INSTANCE_RESET_TIME_HOUR,
     CONFIG_UINT32_INSTANCE_UNLOAD_DELAY,
+    CONFIG_UINT32_INSTANCE_PER_HOUR_LIMIT,
     CONFIG_UINT32_MAX_SPELL_CASTS_IN_CHAIN,
     CONFIG_UINT32_MAX_PRIMARY_TRADE_SKILL,
     CONFIG_UINT32_MIN_PETITION_SIGNS,
@@ -448,6 +449,7 @@ enum eConfigFloatValues
     CONFIG_FLOAT_RATE_XP_PERSONAL_MAX,
     CONFIG_FLOAT_AC_MOVEMENT_CHEAT_TELEPORT_DISTANCE,
     CONFIG_FLOAT_AC_MOVEMENT_CHEAT_WALL_CLIMB_ANGLE,
+    CONFIG_FLOAT_RP_DECAY,
     CONFIG_FLOAT_VALUE_COUNT
 };
 
@@ -754,7 +756,7 @@ class World
         typedef std::list<WorldSession*> Queue;
         void AddQueuedSession(WorldSession*);
         bool RemoveQueuedSession(WorldSession* session);
-        int32 GetQueuedSessionPos(WorldSession*);
+        uint32 GetQueuedSessionPos(WorldSession*);
 
         // Set a new Message of the Day
         void SetMotd(std::string const& motd) { m_motd = motd; }
@@ -879,7 +881,7 @@ class World
         void UpdateResultQueue();
         void InitResultQueue();
 
-        void UpdateRealmCharCount(uint32 accid);
+        void UpdateRealmCharCount(uint32 accountId);
 
         LocaleConstant GetAvailableDbcLocale(LocaleConstant locale) const { if (m_availableDbcLocaleMask & (1 << locale)) return locale; else return m_defaultDbcLocale; }
 
@@ -1008,6 +1010,11 @@ class World
         LFGQueue m_lfgQueue;
         std::unique_ptr<std::thread> m_lfgQueueThread;
 
+        // This thread handles packets while the world sessions update is not running
+        std::unique_ptr<std::thread> m_asyncPacketsThread;
+        bool m_canProcessAsyncPackets;
+        void ProcessAsyncPackets();
+
         // for max speed access
         static float m_MaxVisibleDistanceOnContinents;
         static float m_MaxVisibleDistanceInInstances;
@@ -1041,7 +1048,7 @@ class World
         std::unique_ptr<MovementBroadcaster> m_broadcaster;
 
         std::unique_ptr<ThreadPool> m_updateThreads;
-        
+
         static uint32 m_currentMSTime;
         static TimePoint m_currentTime;
         static uint32 m_currentDiff;
